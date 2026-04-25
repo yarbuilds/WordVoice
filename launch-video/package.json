@@ -1,0 +1,22 @@
+{
+  "name": "wordvoice-launch-video",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "remotion studio src/index.tsx",
+    "render": "remotion render src/index.tsx WordVoiceLaunch out/wordvoice-launch.mp4",
+    "still": "remotion still src/index.tsx WordVoiceLaunch out/wordvoice-launch.png --frame=120"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "^4.0.340"
+  },
+  "devDependencies": {
+    "@remotion/cli": "^4.0.340",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^5.8.3"
+  }
+}
