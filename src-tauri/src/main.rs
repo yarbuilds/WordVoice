@@ -5,14 +5,14 @@ use std::sync::Mutex;
 use tauri::{Manager, State, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
-use typr_lib::audio;
-use typr_lib::dictionary::{self, DictionaryEntry};
-use typr_lib::downloader;
-use typr_lib::history::{self, HistoryEntry};
-use typr_lib::paste;
-use typr_lib::recorder::{Recorder, RecordingState};
-use typr_lib::settings::Settings;
-use typr_lib::transcribe_local;
+use wordvoice_lib::audio;
+use wordvoice_lib::dictionary::{self, DictionaryEntry};
+use wordvoice_lib::downloader;
+use wordvoice_lib::history::{self, HistoryEntry};
+use wordvoice_lib::paste;
+use wordvoice_lib::recorder::{Recorder, RecordingState};
+use wordvoice_lib::settings::Settings;
+use wordvoice_lib::transcribe_local;
 
 struct AppState {
     recorder: Recorder,
