@@ -1,0 +1,50 @@
+name: Release
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            args: '--target aarch64-apple-darwin'
+          - os: macos-latest
+            args: '--target x86_64-apple-darwin'
+          - os: windows-latest
+            args: ''
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.os == 'macos-latest' && matrix.args == '--target aarch64-apple-darwin' && 'aarch64-apple-darwin' || matrix.os == 'macos-latest' && matrix.args == '--target x86_64-apple-darwin' && 'x86_64-apple-darwin' || '' }}
+
+      - name: install frontend dependencies
+        run: npm install
+
+      - name: Build and Release the app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: app-v__VERSION__
+          releaseName: 'WordVoice v__VERSION__'
+          releaseBody: 'Download the installation files below.'
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
