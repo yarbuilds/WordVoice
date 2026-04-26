@@ -27,5 +27,4 @@ dist-ssr
 target/
 
 # App-specific
-src-tauri/binaries/
 whisper.cpp/

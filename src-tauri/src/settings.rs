@@ -6,7 +6,10 @@ use std::path::PathBuf;
 pub struct Settings {
     pub microphone: String,
     pub engine: String,
-    #[serde(rename = "autoCopyAfterPaste", default = "default_auto_copy_after_paste")]
+    #[serde(
+        rename = "autoCopyAfterPaste",
+        default = "default_auto_copy_after_paste"
+    )]
     pub auto_copy_after_paste: bool,
     #[serde(rename = "whisperModel")]
     pub whisper_model: String,

@@ -1,13 +1,13 @@
-pub mod settings;
 pub mod audio;
-pub mod transcribe_local;
-pub mod transcribe_groq;
 pub mod cleanup;
-pub mod paste;
-pub mod recorder;
+pub mod dictionary;
 pub mod downloader;
 pub mod history;
-pub mod dictionary;
+pub mod paste;
+pub mod recorder;
+pub mod settings;
+pub mod transcribe_groq;
+pub mod transcribe_local;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

@@ -8,8 +8,8 @@ use crate::dictionary::apply_dictionary;
 use crate::history::append_history_entry;
 use crate::paste::paste_text;
 use crate::settings::Settings;
-use crate::transcribe_local;
 use crate::transcribe_groq;
+use crate::transcribe_local;
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub enum RecordingState {
@@ -68,61 +68,56 @@ impl Recorder {
         settings: &Settings,
         app_dir: &PathBuf,
     ) -> Result<String, String> {
-        // Stop recording
-        {
-            let mut state = self.state.lock().unwrap();
-            if *state != RecordingState::Recording {
-                return Err("Not currently recording".to_string());
-            }
-            *state = RecordingState::Transcribing;
-            let _ = app.emit("recording-state", RecordingState::Transcribing);
-            update_overlay(app, &RecordingState::Transcribing);
-        }
-
         let temp_path = app_dir.join("temp_recording.wav");
+        let result = async {
+            {
+                let mut state = self.state.lock().unwrap();
+                if *state != RecordingState::Recording {
+                    return Err("Not currently recording".to_string());
+                }
+                *state = RecordingState::Transcribing;
+                let _ = app.emit("recording-state", RecordingState::Transcribing);
+                update_overlay(app, &RecordingState::Transcribing);
+            }
 
-        // Save audio
-        {
-            let mut recorder = self.audio_recorder.lock().unwrap();
-            recorder.stop_and_save(&temp_path)?;
+            {
+                let mut recorder = self.audio_recorder.lock().unwrap();
+                recorder.stop_and_save(&temp_path)?;
+            }
+
+            let raw_text = match settings.engine.as_str() {
+                "local" => {
+                    let model_path =
+                        app_dir.join(transcribe_local::model_filename(&settings.whisper_model));
+                    transcribe_local::transcribe_local(app, &model_path, &temp_path).await?
+                }
+                "cloud" => {
+                    transcribe_groq::transcribe_groq(&settings.groq_api_key, &temp_path).await?
+                }
+                _ => return Err(format!("Unknown engine: {}", settings.engine)),
+            };
+
+            let cleaned = cleanup_text(&raw_text);
+            let dictionary_entries = crate::dictionary::load_dictionary(app_dir);
+            let cleaned = apply_dictionary(&cleaned, &dictionary_entries);
+
+            if !cleaned.is_empty() {
+                let entry = append_history_entry(
+                    app_dir,
+                    &cleaned,
+                    &settings.engine,
+                    &settings.microphone,
+                )?;
+                let _ = app.emit("history-updated", entry);
+                paste_text(&cleaned, settings.auto_copy_after_paste)?;
+            }
+
+            Ok(cleaned)
         }
+        .await;
 
-        // Transcribe
-        let raw_text = match settings.engine.as_str() {
-            "local" => {
-                let model_path = app_dir.join(transcribe_local::model_filename(&settings.whisper_model));
-                transcribe_local::transcribe_local(app, &model_path, &temp_path).await?
-            }
-            "cloud" => {
-                transcribe_groq::transcribe_groq(&settings.groq_api_key, &temp_path).await?
-            }
-            _ => return Err(format!("Unknown engine: {}", settings.engine)),
-        };
-
-        // Cleanup temp file
         let _ = std::fs::remove_file(&temp_path);
 
-        // Clean up text
-        let cleaned = cleanup_text(&raw_text);
-        let dictionary_entries = crate::dictionary::load_dictionary(app_dir);
-        let cleaned = apply_dictionary(&cleaned, &dictionary_entries);
-
-        if !cleaned.is_empty() {
-            let entry = append_history_entry(
-                app_dir,
-                &cleaned,
-                &settings.engine,
-                &settings.microphone,
-            )?;
-            let _ = app.emit("history-updated", entry);
-        }
-
-        // Auto-paste
-        if !cleaned.is_empty() {
-            paste_text(&cleaned, settings.auto_copy_after_paste)?;
-        }
-
-        // Reset state
         {
             let mut state = self.state.lock().unwrap();
             *state = RecordingState::Ready;
@@ -130,7 +125,7 @@ impl Recorder {
             update_overlay(app, &RecordingState::Ready);
         }
 
-        Ok(cleaned)
+        result
     }
 }
 

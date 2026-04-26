@@ -11,7 +11,10 @@ pub async fn transcribe_local(
         return Err("Whisper model not found. Please download a model first.".to_string());
     }
 
-    println!("[WordVoice] Running whisper.cpp sidecar with model {:?}", model_path);
+    println!(
+        "[WordVoice] Running whisper.cpp sidecar with model {:?}",
+        model_path
+    );
 
     let output = app
         .shell()
@@ -23,6 +26,8 @@ pub async fn transcribe_local(
             "-f",
             audio_path.to_str().unwrap(),
             "--no-timestamps",
+            "--no-gpu",
+            "-np",
             "-l",
             "en",
         ])
@@ -36,6 +41,13 @@ pub async fn transcribe_local(
     }
 
     let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if text.is_empty() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!(
+            "whisper.cpp returned no transcription output. {}",
+            stderr.trim()
+        ));
+    }
     println!("[WordVoice] Whisper output: {}", text);
     Ok(text)
 }

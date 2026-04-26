@@ -6,8 +6,8 @@ pub async fn transcribe_groq(api_key: &str, audio_path: &PathBuf) -> Result<Stri
         return Err("Groq API key not set. Please enter your API key in settings.".to_string());
     }
 
-    let audio_bytes = std::fs::read(audio_path)
-        .map_err(|e| format!("Failed to read audio file: {}", e))?;
+    let audio_bytes =
+        std::fs::read(audio_path).map_err(|e| format!("Failed to read audio file: {}", e))?;
 
     let file_part = multipart::Part::bytes(audio_bytes)
         .file_name("audio.wav")

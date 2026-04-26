@@ -132,10 +132,7 @@ async fn toggle_recording(
 }
 
 /// Shared logic for toggle recording, used by both the Tauri command and hotkey handler.
-async fn do_toggle_recording(
-    app: &tauri::AppHandle,
-    state: &AppState,
-) -> Result<String, String> {
+async fn do_toggle_recording(app: &tauri::AppHandle, state: &AppState) -> Result<String, String> {
     let current_state = state.recorder.get_state();
     match current_state {
         RecordingState::Ready => {
@@ -151,9 +148,7 @@ async fn do_toggle_recording(
                 .await?;
             Ok(result)
         }
-        RecordingState::Transcribing => {
-            Err("Currently transcribing, please wait".to_string())
-        }
+        RecordingState::Transcribing => Err("Currently transcribing, please wait".to_string()),
     }
 }
 
@@ -225,12 +220,18 @@ fn main() {
 
             let handle = app.handle().clone();
 
-            println!("[WordVoice] Registering global shortcut: {}", initial_hotkey);
+            println!(
+                "[WordVoice] Registering global shortcut: {}",
+                initial_hotkey
+            );
 
             match app.global_shortcut().on_shortcut(
                 initial_hotkey.as_str(),
                 move |_app, shortcut, event| {
-                    println!("[WordVoice] Hotkey event: {:?} state={:?}", shortcut, event.state);
+                    println!(
+                        "[WordVoice] Hotkey event: {:?} state={:?}",
+                        shortcut, event.state
+                    );
                     let handle = handle.clone();
                     let state = handle.state::<AppState>();
                     let mode = state.settings.lock().unwrap().recording_mode.clone();
@@ -242,25 +243,31 @@ fn main() {
                                 let state = handle.state::<AppState>();
                                 match mode.as_str() {
                                     "toggle" => {
-                                        println!("[WordVoice] Toggle mode: calling do_toggle_recording");
+                                        println!(
+                                            "[WordVoice] Toggle mode: calling do_toggle_recording"
+                                        );
                                         match do_toggle_recording(&handle, state.inner()).await {
-                                            Ok(result) => println!("[WordVoice] Toggle result: {}", result),
+                                            Ok(result) => {
+                                                println!("[WordVoice] Toggle result: {}", result)
+                                            }
                                             Err(e) => eprintln!("[WordVoice] Toggle error: {}", e),
                                         }
                                     }
                                     "push-to-talk" => {
                                         let current = state.recorder.get_state();
-                                        println!("[WordVoice] PTT mode, current state: {:?}", current);
+                                        println!(
+                                            "[WordVoice] PTT mode, current state: {:?}",
+                                            current
+                                        );
                                         if current == RecordingState::Ready {
-                                            let mic = state
-                                                .settings
-                                                .lock()
-                                                .unwrap()
-                                                .microphone
-                                                .clone();
+                                            let mic =
+                                                state.settings.lock().unwrap().microphone.clone();
                                             match state.recorder.start_recording(&handle, &mic) {
                                                 Ok(_) => println!("[WordVoice] Recording started"),
-                                                Err(e) => eprintln!("[WordVoice] Start recording error: {}", e),
+                                                Err(e) => eprintln!(
+                                                    "[WordVoice] Start recording error: {}",
+                                                    e
+                                                ),
                                             }
                                         }
                                     }
@@ -274,15 +281,18 @@ fn main() {
                                     let state = handle.state::<AppState>();
                                     let current = state.recorder.get_state();
                                     if current == RecordingState::Recording {
-                                        let settings =
-                                            state.settings.lock().unwrap().clone();
-                                        match state.recorder.stop_and_transcribe(
-                                            &handle,
-                                            &settings,
-                                            &state.app_dir,
-                                        ).await {
-                                            Ok(result) => println!("[WordVoice] Transcription: {}", result),
-                                            Err(e) => eprintln!("[WordVoice] Transcription error: {}", e),
+                                        let settings = state.settings.lock().unwrap().clone();
+                                        match state
+                                            .recorder
+                                            .stop_and_transcribe(&handle, &settings, &state.app_dir)
+                                            .await
+                                        {
+                                            Ok(result) => {
+                                                println!("[WordVoice] Transcription: {}", result)
+                                            }
+                                            Err(e) => {
+                                                eprintln!("[WordVoice] Transcription error: {}", e)
+                                            }
                                         }
                                     }
                                 });
@@ -292,7 +302,10 @@ fn main() {
                 },
             ) {
                 Ok(_) => println!("[WordVoice] Global shortcut registered successfully"),
-                Err(e) => eprintln!("[WordVoice] ERROR: Failed to register global shortcut: {}", e),
+                Err(e) => eprintln!(
+                    "[WordVoice] ERROR: Failed to register global shortcut: {}",
+                    e
+                ),
             }
 
             Ok(())

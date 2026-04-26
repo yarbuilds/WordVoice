@@ -1,7 +1,7 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use hound::{WavSpec, WavWriter};
-use std::sync::{Arc, Mutex};
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
@@ -131,6 +131,15 @@ pub struct AudioRecorder {
     source_channels: u16,
 }
 
+fn extend_as_f32<T>(samples: &Arc<Mutex<Vec<f32>>>, data: &[T])
+where
+    T: cpal::Sample,
+    f32: cpal::FromSample<T>,
+{
+    let mut buf = samples.lock().unwrap();
+    buf.extend(data.iter().map(|sample| sample.to_sample::<f32>()));
+}
+
 impl AudioRecorder {
     pub fn new() -> Self {
         Self {
@@ -157,7 +166,10 @@ impl AudioRecorder {
         let sample_rate = default_config.sample_rate().0;
         let channels = default_config.channels();
 
-        println!("[WordVoice] Mic config: {}Hz, {} channels", sample_rate, channels);
+        println!(
+            "[WordVoice] Mic config: {}Hz, {} channels",
+            sample_rate, channels
+        );
 
         self.source_sample_rate = sample_rate;
         self.source_channels = channels;
@@ -168,20 +180,47 @@ impl AudioRecorder {
             buffer_size: cpal::BufferSize::Default,
         };
 
-        let samples = self.samples.clone();
-        let stream = device
-            .build_input_stream(
-                &config,
-                move |data: &[f32], _: &cpal::InputCallbackInfo| {
-                    let mut buf = samples.lock().unwrap();
-                    buf.extend_from_slice(data);
-                },
-                |err| {
-                    eprintln!("[WordVoice] Audio stream error: {}", err);
-                },
-                None,
-            )
-            .map_err(|e| e.to_string())?;
+        let err_fn = |err| {
+            eprintln!("[WordVoice] Audio stream error: {}", err);
+        };
+
+        let stream = match default_config.sample_format() {
+            cpal::SampleFormat::F32 => {
+                let samples = self.samples.clone();
+                device.build_input_stream(
+                    &config,
+                    move |data: &[f32], _: &cpal::InputCallbackInfo| {
+                        extend_as_f32(&samples, data);
+                    },
+                    err_fn,
+                    None,
+                )
+            }
+            cpal::SampleFormat::I16 => {
+                let samples = self.samples.clone();
+                device.build_input_stream(
+                    &config,
+                    move |data: &[i16], _: &cpal::InputCallbackInfo| {
+                        extend_as_f32(&samples, data);
+                    },
+                    err_fn,
+                    None,
+                )
+            }
+            cpal::SampleFormat::U16 => {
+                let samples = self.samples.clone();
+                device.build_input_stream(
+                    &config,
+                    move |data: &[u16], _: &cpal::InputCallbackInfo| {
+                        extend_as_f32(&samples, data);
+                    },
+                    err_fn,
+                    None,
+                )
+            }
+            other => return Err(format!("Unsupported microphone sample format: {:?}", other)),
+        }
+        .map_err(|e| e.to_string())?;
 
         stream.play().map_err(|e| e.to_string())?;
         self.stream = Some(SendStream(stream));
@@ -212,7 +251,10 @@ impl AudioRecorder {
 
         // Downsample to 16kHz for whisper.cpp
         let resampled = resample(&mono, self.source_sample_rate, 16000);
-        println!("[WordVoice] Resampled to {} samples at 16kHz", resampled.len());
+        println!(
+            "[WordVoice] Resampled to {} samples at 16kHz",
+            resampled.len()
+        );
 
         let spec = WavSpec {
             channels: 1,
